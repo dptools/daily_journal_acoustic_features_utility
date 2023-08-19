@@ -1,6 +1,6 @@
 # AMPSCZ Feature Extraction Utility for Daily Audio Journals
 
-Supplement to AMPSCZ diary data flow code, for extraction of OpenSMILE features on the designated AV processing server(s). Work in progress.
+Supplement to AMPSCZ diary data flow code, for extraction of OpenSMILE features on the designated AV processing server(s). Work in progress, but initial testing on ProNET AV server was successful. This portion of the code took ~30 seconds to run on 3 diary files from 1 subject totalling ~270 seconds.
 
 ### Purpose
 
@@ -10,7 +10,7 @@ It is a separate code base because it needs to be run in parallel on a different
 
 ### Remaining TODOs
 
-1. Work with IT to test and then finalize launch of this extraction script for ProNET (see opensmile_feature_extraction_script-pronet.sh).
+1. Work with IT to finalize launch of this extraction script for ProNET (see opensmile_feature_extraction_script-pronet.sh). Current installation can be found on the ProNET AV server under /opt/software. It will be used within existing ProNET infrastructure rather than run on an independent cron.
 2. Finish this README, including documentation of specific extracted features and instructions/dependencies for installation on other AMPSCZ (or similar project) AV servers.
 3. Add cleanup and monitoring of completed acoustic feature extraction to the main daily_journal_dataflow_qc code, and update those docs accordingly.
 4. Set up this same code to run on designated PRESCIENT AV server.

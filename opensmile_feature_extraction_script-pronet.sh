@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# This script runs on ProNET AV server on a cron on root account
-# It interfaces with dataflow management software written by ProNET IT team
-# (which works with the outputs produced by daily_journal_dataflow_qc pipeline)
+# This script runs on ProNET AV server, looking only for files on the AV server's built-in storage
+# It is used by the dataflow management software written by ProNET IT team
+# That pipeline runs regularly on AV server via cron job from root account
+# It works with the completed_audio files produced by daily_journal_dataflow_qc code
 
 ### SERVER SPECIFIC COMPONENTS
 
@@ -13,6 +14,7 @@ working_data_root=/opt/data
 destination_data_root=/mnt/ProNET/Lochness/PHOENIX
 site_root=Pronet
 conda_env=/opt/software/env/py-feat/
+conda_root_path=/opt/miniconda3
 
 ### MORE GENERAL COMPONENTS
 
@@ -33,13 +35,18 @@ exec 2> >(tee -ia "$repo_root"/logs/opensmile_feature_logging_"$log_timestamp".t
 verbose_log_path="$repo_root"/logs/opensmile_direct_outputs_"$log_timestamp".txt
 
 # setup exc paths
-export PATH="$PATH":"$smile_execute_path"
+export PATH="$PATH":"$smile_execute_root"
+. "$conda_root_path"/etc/profile.d/conda.sh 
 conda activate "$conda_env" 
 cd "$working_data_root"
 
 # loop over subjects to find new diary WAVs for processing:
 # this code will always extract features using 2 chosen OpenSMILE configs
 # as well as following assumptions about AMPSCZ PHOENIX folder structure
+# note the WAV copies are provided in the expected AV server location by the above mentioned ProNET pipeline
+# therefore that pipeline handles the general rate of processing and enforcement of operation ordering
+# (including ensuring that a file in the middle of being copied will not end up partially processed here,
+#  as well as preventing a file that has already been processed from being needlessly repeated)
 for p in *; do
 	# expect within the working data root to see subject_id/phone folders that then contain WAVs to be processed
 	if [[ ! -d $p/phone ]]; then
@@ -92,16 +99,22 @@ for p in *; do
 		SMILExtract -C "$smile_config_root"/is09-13/IS10_paraling.conf -I "$file" -csvoutput "$paraling_name" -instname "$filename" &> "$verbose_log_path"
 		
 		# now run the python helper to quickly check validity of produced outputs and create basic QC from GeMAPS lld
+		# it will also overwrite the other 2 to have comma instead of semicolon delimiter (no reason for these settings not to use comma)
 		python "$repo_root"/opensmile_data_check.py "$gemaps_name" "$paraling_name" "$summary_name"
 		if [[ ! -e ${summary_name} ]]; then
 			echo "OpenSMILE output summary operation failed for audio ${file}, will not mark WAV as done - please manually investigate"
 			continue
 		fi	
+		# the main daily_journal_dataflow_qc code running on the aggregation server will provide monitoring functionalities for these outputs
 
-		# after compute done locally, move to mount
+		# after compute done locally, move to mount so accessible on Lochness PHOENIX file system
 		mv "$gemaps_name" "$destination_data_root"/PROTECTED/"$site_root""$site_id"/processed/"$p"/phone/audio_journals/opensmile_outputs/gemaps_lld_csvs/"$gemaps_name"
 		mv "$paraling_name" "$destination_data_root"/PROTECTED/"$site_root""$site_id"/processed/"$p"/phone/audio_journals/opensmile_outputs/is10_paraling_total_csvs/"$paraling_name"
 		mv "$summary_name" "$destination_data_root"/PROTECTED/"$site_root""$site_id"/processed/"$p"/phone/audio_journals/opensmile_outputs/gemaps_monitoring_summary_csvs/"$summary_name"
+		# note daily_journal_dataflow_qc will ensure that curated outputs get to the GENERAL side for eventual move to predict
+
+		# confirm no issue with copying of outputs
+		# then leave a marker of processing for ProNET's script and delete the WAV copy that is no longer needed on AV server storage
 		if [[ ! -e ${destination_data_root}/PROTECTED/${site_root}${site_id}/processed/${p}/phone/audio_journals/opensmile_outputs/gemaps_lld_csvs/${gemaps_name} ]]; then
 			echo "Problem with copying of GeMAPS output for audio ${file}, will not mark WAV as done - please manually investigate"
 			continue
@@ -126,6 +139,5 @@ for p in *; do
 	cd "$working_data_root"
 done
 
-# TODO:
-# confirm whether I will need to check for partial copies (maybe lsof) or kill this process after a certain amount of time on a given day?
-# at end, make sure permissions in both destination and working data are as expected!
+# this script does not need to worry about permissions on AV server as it is part of larger root infrastructure
+# so should be all done!

@@ -10,8 +10,8 @@ import sys
 #  use 'name' as label row)
 def opensmile_data_check(gemaps_path, is10_path, save_path):
 	try:
-		gemaps = pd.read_csv(gemaps_path)
-		is10 = pd.read_csv(is10_path)
+		gemaps = pd.read_csv(gemaps_path,sep=';')
+		is10 = pd.read_csv(is10_path,sep=';')
 	except:
 		print("WARNING: unable to load OpenSMILE output paths (" + gemaps_path + ", " + is10_path + "), skipping file")
 		return
@@ -22,6 +22,11 @@ def opensmile_data_check(gemaps_path, is10_path, save_path):
 		print("WARNING: file level output for " + gemaps_path + " empty, audio needs to be manually inspected")
 		return
 
+	# make comma delimited instead
+	gemaps.to_csv(gemaps_path,index=False)
+	is10.to_csv(is10_path,index=False)
+
+	# now start sanity checks/summary operations
 	num_rows_init = gemaps.shape[0]
 	last_stamp_init = gemaps['frameTime'].tolist()[-1]
 	gemaps_nonnan = gemaps.dropna(subset=['frameTime','Loudness_sma3','F0semitoneFrom27.5Hz_sma3nz'],how='any')
